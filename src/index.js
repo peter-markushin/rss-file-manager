@@ -1,35 +1,49 @@
-import process from 'node:process';
+import {homedir} from 'node:os';
+import {createInterface} from 'node:readline/promises';
 
-function getUserNameFromArgs(args) {
-    const usernameArg = args.find((arg) => arg.startsWith('--username='));
+import * as fs from './mods/fs/index.js';
+import * as os from './mods/os/index.js';
 
-    if (typeof usernameArg === 'string') {
-        return usernameArg.substring(11);
-    }
-}
+import * as messages from './messages.js';
+import {executeModuleCommand, getUserNameFromArgs} from './helpers.js'
 
-function execCmd(command) {
-    const commandString = command.toString().trim();
+const KNOWN_MODULES = [
+    fs,
+    os,
+];
 
-    if (commandString === '.exit') {
-        process.exit(0);
-    }
-}
+const cliInterface = await createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    prompt: '> ',
+    tabSize: 4
+});
 
 const main = async (args) => {
-    const userName = getUserNameFromArgs(args);
+    const userName = await getUserNameFromArgs(args);
 
-    console.log(`Welcome to the File Manager${userName ? ', ' + userName : ''}!`)
+    cliInterface
+        .on('SIGINT', () => cliInterface.close())
+        .on('close', () => messages.exit(userName))
+        .on('line', async (commandString) => {
+            commandString = commandString.toString().trim();
 
-    process.stdin.on('data', execCmd);
+            try {
+                await executeModuleCommand(KNOWN_MODULES, commandString);
+            } catch {
+                messages.operationFailed();
+            }
 
-    process.on('SIGINT', () => {
-        process.exit();
-    });
+            messages.cwd();
+        });
 
-    process.on('exit', () => {
-        console.log(`\nThank you for using File Manager${userName ? ', ' + userName : ''}, goodbye!`);
-    });
+    process.on('exit', () => cliInterface.close());
+    process.on('uncaughtException', () => messages.operationFailed());
+    process.on('unhandledRejection', () => messages.operationFailed());
+    process.chdir(homedir());
+
+    messages.welcome(userName);
+    messages.cwd();
 }
 
- await main(process.argv.slice(2));
+await main(process.argv.slice(2));
