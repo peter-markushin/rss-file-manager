@@ -3,13 +3,17 @@ import {createInterface} from 'node:readline/promises';
 
 import * as fs from './mods/fs/index.js';
 import * as os from './mods/os/index.js';
+import * as hash from './mods/hash/index.js';
+import * as zip from './mods/zip/index.js';
 
 import * as messages from './messages.js';
 import {executeModuleCommand, getUserNameFromArgs} from './helpers.js'
 
 const KNOWN_MODULES = [
     fs,
+    hash,
     os,
+    zip,
 ];
 
 const cliInterface = await createInterface({
@@ -37,9 +41,11 @@ const main = async (args) => {
             messages.cwd();
         });
 
-    process.on('exit', () => cliInterface.close());
-    process.on('uncaughtException', () => messages.operationFailed());
-    process.on('unhandledRejection', () => messages.operationFailed());
+    process
+        .on('exit', () => cliInterface.close())
+        .on('uncaughtException', () => messages.operationFailed())
+        .on('unhandledRejection', () => messages.operationFailed());
+
     process.chdir(homedir());
 
     messages.welcome(userName);
